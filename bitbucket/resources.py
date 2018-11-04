@@ -157,8 +157,8 @@ class PullRequest(Resource):
             if self.reviewer.status == 'APPROVED':
                 unapproved = False
 
-        # if unapproved:
-        #     return {'canMerge': False, 'reason': 'Review incomplete'}
+        if unapproved:
+            return {'canMerge': False, 'reason': 'Review incomplete'}
 
         uri = 'projects/{}/repos/{}/pull-requests/{}/merge'.format(self.fromRef.repository.project.name,
                                                                    self.fromRef.repository.slug,
