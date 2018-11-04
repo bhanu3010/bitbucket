@@ -3,6 +3,8 @@ import logging
 import re
 from six import iteritems
 
+from bitbucket.exceptions import BitbucketError
+
 try:  # Python 2.7+
     from logging import NullHandler
 except ImportError:
@@ -16,7 +18,8 @@ from bitbucket.utils import CaseInsensitiveDict, json_loads
 logging.getLogger('bitbucket').addHandler(NullHandler())
 
 __all__ = ('Repo',
-           'Project')
+           'Project',
+           'PullRequest')
 
 
 def dict2resource(raw, top=None, options=None, session=None):
@@ -84,6 +87,18 @@ class Resource(object):
         options.update({'path': path})
         return self._base_url.format(**options)
 
+    def _find_for_resource(self, resource_cls, ids, expand=None):
+        # print ids
+        resource = resource_cls(self._options, self._session)
+        params = {}
+        if expand is not None:
+            params['expand'] = expand
+        resource.find(id=ids, params=params)
+        if not resource:
+            raise BitbucketError("Unable to find resource %s(%s)", resource_cls, ids)
+        return resource
+
+
     def _load(self,
               url,
               headers=CaseInsensitiveDict(),
@@ -108,15 +123,13 @@ class Resource(object):
         if params is None:
             params = {}
 
-       # print self._resource
+        # print self._resource
         if isinstance(id, tuple):
             path = self._resource.format(*id)
         else:
             path = self._resource.format(id)
         url = self._get_url(path)
-        # print 'URL: %s' % url
         self._load(url, params=params)
-
 
     def _parse_raw(self, raw):
         self.raw = raw
@@ -128,10 +141,78 @@ class Resource(object):
         return CaseInsensitiveDict(self._options['headers'].items() + user_headers.items())
 
 
+class PullRequest(Resource):
+    def __init__(self, options, session, raw=None):
+        Resource.__init__(self, 'projects/{}/repos/{}/pull-requests/{}', options, session)
+        if raw:
+            self._parse_raw(raw)
+
+    def can_merge(self, **params):
+
+        if self.state == 'MERGED':
+            return {'canMerge': False, 'reason': 'Already merged'}
+
+        unapproved = True
+        for self.reviewer in self.reviewers:
+            if self.reviewer.status == 'APPROVED':
+                unapproved = False
+
+        # if unapproved:
+        #     return {'canMerge': False, 'reason': 'Review incomplete'}
+
+        uri = 'projects/{}/repos/{}/pull-requests/{}/merge'.format(self.fromRef.repository.project.name,
+                                                                   self.fromRef.repository.slug,
+                                                                   self.id)
+        url = self._get_url(uri)
+        r_json = json_loads(self._session.get(url, params=params))
+
+        if r_json.has_key('canMerge') and r_json['canMerge'] is False \
+            and r_json.has_key('outcome') and r_json['outcome'] == 'CONFLICTED':
+            return {'canMerge': False, 'reason': 'Merge conflicts'}
+
+        if r_json.has_key('errors'):
+            return {'canMerge': False, 'reason': r_json['errors']}
+
+        return {'canMerge': True, 'reason': ''}
+
+    def merge(self):
+        uri = 'projects/{}/repos/{}/pull-requests/{}/merge'.format(self.fromRef.repository.project.name,
+                                                                   self.fromRef.repository.slug,
+                                                                   self.id)
+        url = self._get_url(uri)
+        params = {'version': self.version}
+        r_json = json_loads(self._session.post(url, params=params))
+        commit = Commit(self._options, self._session, r_json)
+        return commit
+
 class Repo(Resource):
 
     def __init__(self, options, session, raw=None):
-        Resource.__init__(self, 'projects/{}/repos', options, session)
+        Resource.__init__(self, 'projects/{0}/repos/{1}', options, session)
+        if raw:
+            self._parse_raw(raw)
+
+    def pull_requests(self, **params):
+        uri = 'projects/{}/repos/{}/pull-requests'.format(self.project.name, self.name)
+        url = self._get_url(uri)
+        if not params:
+            params = {'state': 'merged'}
+        r_json = json_loads(self._session.get(url, params=params))
+        # print r_json
+        pull_requests = [PullRequest(self._options, self._session, raw_repo_json)
+                         for raw_repo_json in r_json['values']]
+
+        return pull_requests
+
+    def pull_request(self, id):
+        _id = (self.project.name, self.name, id)
+        return self._find_for_resource(PullRequest, _id)
+
+class Commit(Resource):
+
+    def __init__(self, options, session, raw=None):
+        Resource.__init__(self, 'commits/{}', options, session)
+
         if raw:
             self._parse_raw(raw)
 
@@ -149,10 +230,14 @@ class Project(Resource):
         url = self._options['server'] + '/rest/api/1.0/projects/{}/repos'.format(self.name)
         r_json = json_loads(self._session.get(url))
         repos = [Repo(self._options, self._session, raw_repo_json)
-                    for raw_repo_json in r_json['values']]
+                 for raw_repo_json in r_json['values']]
 
         return repos
 
+    def repo(self, id):
+        # self._resource = 'projects/{}/repos/{}'.format(self.name, id)
+        _id = (self.name, id)
+        return self._find_for_resource(Repo, _id)
 
 
 class UnknownResource(Resource):
@@ -171,6 +256,7 @@ resource_class_map = {
     # r'filter/[^/]$': Filter,
     # r'issue/[^/]+$': Issue,
     r'projects/[^/]+/repos/[^/]+/browse$': Repo,
+    r'projects/[^/]+/repos/[^/]+/pull-requests/[^/]+$': PullRequest,
     # r'issue/[^/]+/votes$': Votes,
     # r'issue/[^/]+/watchers$': Watchers,
     # r'issue/[^/]+/worklog/[^/]+$': Worklog,

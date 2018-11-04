@@ -227,26 +227,6 @@ class Bitbucket(object):
         self._session.cert = self._options['client_cert']
 
     def find(self, resource_format, ids=None):
-        """Find Resource object for any addressable resource on the server.
-
-        This method is a universal resource locator for any REST-ful resource in JIRA. The
-        argument ``resource_format`` is a string of the form ``resource``, ``resource/{0}``,
-        ``resource/{0}/sub``, ``resource/{0}/sub/{1}``, etc. The format placeholders will be
-        populated from the ``ids`` argument if present. The existing authentication session
-        will be used.
-
-        The return value is an untyped Resource object, which will not support specialized
-        :py:meth:`.Resource.update` or :py:meth:`.Resource.delete` behavior. Moreover, it will
-        not know to return an issue Resource if the client uses the resource issue path. For this
-        reason, it is intended to support resources that are not included in the standard
-        Atlassian REST API.
-
-        :param resource_format: the subpath to the resource string
-        :type resource_format: str
-        :param ids: values to substitute in the ``resource_format`` string
-        :type ids: tuple or None
-        :rtype: Resource
-        """
         resource = Resource(resource_format, self._options, self._session)
         resource.find(ids)
         return resource
