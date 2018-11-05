@@ -196,7 +196,7 @@ class Repo(Resource):
         uri = 'projects/{}/repos/{}/pull-requests'.format(self.project.name, self.name)
         url = self._get_url(uri)
         if not params:
-            params = {'state': 'merged'}
+            params = {'state': 'merged', 'limit': 1000}
         r_json = json_loads(self._session.get(url, params=params))
         # print r_json
         pull_requests = [PullRequest(self._options, self._session, raw_repo_json)
@@ -229,7 +229,7 @@ class Project(Resource):
     def repos(self, **params):
         url = self._options['server'] + '/rest/api/1.0/projects/{}/repos'.format(self.name)
         if not params:
-            params = {'maxResults': 1000}
+            params = {'limit': 1000}
         r_json = json_loads(self._session.get(url, params=params))
         repos = [Repo(self._options, self._session, raw_repo_json)
                  for raw_repo_json in r_json['values']]
