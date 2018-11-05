@@ -19,7 +19,8 @@ logging.getLogger('bitbucket').addHandler(NullHandler())
 
 __all__ = ('Repo',
            'Project',
-           'PullRequest')
+           'PullRequest',
+           'User')
 
 
 def dict2resource(raw, top=None, options=None, session=None):
@@ -32,8 +33,9 @@ def dict2resource(raw, top=None, options=None, session=None):
             if 'self' in j:
                 resource = cls_for_resource(j['self'])(options, session, j)
                 setattr(top, i, resource)
-            # elif i == 'timetracking':
-            #     setattr(top, 'timetracking', TimeTracking(options, session, j))
+            elif j.has_key('links') and j['links'].has_key('self'):
+                resource = cls_for_resource(j['links']['self'])(options, session, j)
+                setattr(top, i, resource)
             else:
                 setattr(
                     top, i, dict2resource(j, options=options, session=session))
