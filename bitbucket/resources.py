@@ -48,6 +48,10 @@ def dict2resource(raw, top=None, options=None, session=None):
                         resource = cls_for_resource(seq_elem['self'])(
                             options, session, seq_elem)
                         seq_list.append(resource)
+                    elif seq_elem.has_key('links') and seq_elem['links'].has_key('self'):
+                        resource = cls_for_resource(seq_elem['links']['self'])(
+                            options, session, seq_elem)
+                        seq_list.append(resource)
                     else:
                         seq_list.append(
                             dict2resource(seq_elem, options=options, session=session))
