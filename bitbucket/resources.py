@@ -19,6 +19,7 @@ logging.getLogger('bitbucket').addHandler(NullHandler())
 
 __all__ = ('Repo',
            'Project',
+           'Resource',
            'PullRequest',
            'User')
 
@@ -258,35 +259,10 @@ class UnknownResource(Resource):
 
 
 resource_class_map = {
-    # JIRA specific resources
     r'projects/[^/]+$': Project,
-    # r'component/[^/]+$': Component,
-    # r'customFieldOption/[^/]+$': CustomFieldOption,
-    # r'dashboard/[^/]+$': Dashboard,
-    # r'filter/[^/]$': Filter,
-    # r'issue/[^/]+$': Issue,
     r'users/[^/]+$': User,
     r'projects/[^/]+/repos/[^/]+/browse$': Repo,
     r'projects/[^/]+/repos/[^/]+/pull-requests/[^/]+$': PullRequest,
-    # r'issue/[^/]+/votes$': Votes,
-    # r'issue/[^/]+/watchers$': Watchers,
-    # r'issue/[^/]+/worklog/[^/]+$': Worklog,
-    # r'issueLink/[^/]+$': IssueLink,
-    # r'issueLinkType/[^/]+$': IssueLinkType,
-    # r'issuetype/[^/]+$': IssueType,
-    # r'priority/[^/]+$': Priority,
-    # r'project/[^/]+$': Project,
-    # r'project/[^/]+/role/[^/]+$': Role,
-    # r'resolution/[^/]+$': Resolution,
-    # r'securitylevel/[^/]+$': SecurityLevel,
-    # r'status/[^/]+$': Status,
-    # r'statuscategory/[^/]+$': StatusCategory,
-    # r'user\?(username|accountId).+$': User,
-    # r'group\?groupname.+$': Group,
-    # r'version/[^/]+$': Version,
-    # # GreenHopper specific resources
-    # r'sprints/[^/]+$': Sprint,
-    # r'views/[^/]+$': Board
 }
 
 
@@ -296,10 +272,9 @@ def cls_for_resource(resource):
         if re.search(resource, resource_literal):
             return resource_class_map[resource]
     else:
-        # Generic Resource cannot directly be used b/c of different constructor signature
         return UnknownResource
 
 
 class PropertyHolder(object):
     def __init__(self, raw):
-        __bases__ = raw  # noqa
+        __bases__ = raw

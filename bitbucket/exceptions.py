@@ -7,7 +7,7 @@ class BitbucketError(Exception):
 
     log_to_tempfile = True
     if 'TRAVIS' in os.environ:
-        log_to_tempfile = False  # Travis is keeping only the console log.
+        log_to_tempfile = False
 
     def __init__(self,
                  status_code=None,
@@ -66,12 +66,10 @@ class BitbucketError(Exception):
         if self.response is not None and hasattr(self.response, 'text'):
             details += "\n\tresponse text = %s" % self.response.text
 
-        # separate logging for Travis makes sense.
         if self.travis:
             if self.text:
                 t += "\n\ttext: %s" % self.text
             t += details
-        # Only log to tempfile if the option is set.
         elif self.log_to_tempfile:
             fd, file_name = tempfile.mkstemp(suffix='.tmp', prefix='Bitbucketerror-')
             with open(file_name, "w") as f:
