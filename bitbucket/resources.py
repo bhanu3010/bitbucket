@@ -226,9 +226,11 @@ class Project(Resource):
         if raw:
             self._parse_raw(raw)
 
-    def repos(self):
+    def repos(self, **params):
         url = self._options['server'] + '/rest/api/1.0/projects/{}/repos'.format(self.name)
-        r_json = json_loads(self._session.get(url))
+        if not params:
+            params = {'maxResults': 1000}
+        r_json = json_loads(self._session.get(url, params=params))
         repos = [Repo(self._options, self._session, raw_repo_json)
                  for raw_repo_json in r_json['values']]
 
