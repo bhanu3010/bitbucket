@@ -238,7 +238,7 @@ class Repo(Resource):
 
         return pull_requests
 
-    def get_latest_merge_commit(self, **params):
+    def latest_merge_commit(self, **params):
         uri = 'projects/{0}/repos/{1}/commits'.format(self.project.name,
                                                       self.name)
         url = self._get_url(uri)
