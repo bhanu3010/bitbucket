@@ -238,6 +238,27 @@ class Repo(Resource):
 
         return pull_requests
 
+    def get_latest_merge_commit(self, **params):
+        uri = 'projects/{0}/repos/{1}/commits'.format(self.project.name,
+                                                      self.name)
+        url = self._get_url(uri)
+
+        if not params:
+            params['merges'] = 'only'
+            params['limit'] = 1000
+
+        r_json = json_loads(self._session.get(url, params=params))
+        # print r_json
+        commits = [Commit(self._options, self._session, raw_commit_json)
+                         for raw_commit_json in r_json['values']]
+
+        if commits:
+            target_commit = commits[0]
+        else:
+            target_commit = {'status': 'Failed', 'reason': 'No merges so far'}
+
+        return target_commit
+
     def pull_request(self, id):
         _id = (self.project.name, self.name, id)
         return self._find_for_resource(PullRequest, _id)
