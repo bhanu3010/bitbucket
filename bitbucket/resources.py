@@ -216,6 +216,12 @@ class Commit(Resource):
         if raw:
             self._parse_raw(raw)
 
+class User(Resource):
+    def __init__(self, options, session, raw=None):
+        Resource.__init__(self, 'users/{}', options, session)
+
+        if raw:
+            self._parse_raw(raw)
 
 
 class Project(Resource):
@@ -257,6 +263,7 @@ resource_class_map = {
     # r'dashboard/[^/]+$': Dashboard,
     # r'filter/[^/]$': Filter,
     # r'issue/[^/]+$': Issue,
+    r'users/[^/]+$': User,
     r'projects/[^/]+/repos/[^/]+/browse$': Repo,
     r'projects/[^/]+/repos/[^/]+/pull-requests/[^/]+$': PullRequest,
     # r'issue/[^/]+/votes$': Votes,
