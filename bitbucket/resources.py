@@ -105,7 +105,6 @@ class Resource(object):
             raise BitbucketError("Unable to find resource %s(%s)", resource_cls, ids)
         return resource
 
-
     def _load(self,
               url,
               headers=CaseInsensitiveDict(),
@@ -157,7 +156,12 @@ class PullRequest(Resource):
     def can_merge(self, **params):
 
         if self.state == 'MERGED':
-            return {'canMerge': False, 'reason': 'Already merged'}
+            commit = self.get_merge_commit()
+            if isinstance(commit, Commit):
+                commit_id = commit.displayId
+            else:
+                commit_id = 'Failed to fetch commitID'
+            return {'canMerge': False, 'reason': 'Already merged', 'commit': commit_id}
 
         unapproved = True
         for self.reviewer in self.reviewers:
@@ -174,13 +178,35 @@ class PullRequest(Resource):
         r_json = json_loads(self._session.get(url, params=params))
 
         if r_json.has_key('canMerge') and r_json['canMerge'] is False \
-            and r_json.has_key('outcome') and r_json['outcome'] == 'CONFLICTED':
+                and r_json.has_key('outcome') and r_json['outcome'] == 'CONFLICTED':
             return {'canMerge': False, 'reason': 'Merge conflicts'}
 
         if r_json.has_key('errors'):
             return {'canMerge': False, 'reason': r_json['errors']}
 
         return {'canMerge': True, 'reason': ''}
+
+    def get_merge_commit(self, **params):
+        target_commit = None
+        uri = 'projects/{0}/repos/{1}/commits'.format(self.fromRef.repository.project.name,
+                                                      self.fromRef.repository.name)
+        url = self._get_url(uri)
+
+        if not params:
+            params['merges'] = 'only'
+            params['limit'] = 1000
+
+        r_json = json_loads(self._session.get(url, params=params))
+        # print r_json
+        commits = [Commit(self._options, self._session, raw_commit_json)
+                         for raw_commit_json in r_json['values']]
+
+        msg = 'Merge pull request #{0} '.format(self.id)
+        for commit in commits:
+            if commit.message.startswith(msg):
+                target_commit = commit
+                break
+        return target_commit
 
     def merge(self):
         uri = 'projects/{}/repos/{}/pull-requests/{}/merge'.format(self.fromRef.repository.project.name,
@@ -191,6 +217,7 @@ class PullRequest(Resource):
         r_json = json_loads(self._session.post(url, params=params))
         commit = Commit(self._options, self._session, r_json)
         return commit
+
 
 class Repo(Resource):
 
@@ -215,6 +242,7 @@ class Repo(Resource):
         _id = (self.project.name, self.name, id)
         return self._find_for_resource(PullRequest, _id)
 
+
 class Commit(Resource):
 
     def __init__(self, options, session, raw=None):
@@ -222,6 +250,7 @@ class Commit(Resource):
 
         if raw:
             self._parse_raw(raw)
+
 
 class User(Resource):
     def __init__(self, options, session, raw=None):
